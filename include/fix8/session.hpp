@@ -4,7 +4,7 @@
 Fix8 is released under the GNU LESSER GENERAL PUBLIC LICENSE Version 3.
 
 Fix8 Open Source FIX Engine.
-Copyright (C) 2010-15 David L. Dight <fix@fix8.org>
+Copyright (C) 2010-16 David L. Dight <fix@fix8.org>
 
 Fix8 is free software: you can  redistribute it and / or modify  it under the  terms of the
 GNU Lesser General  Public License as  published  by the Free  Software Foundation,  either
@@ -203,7 +203,7 @@ struct Schedule
 	int _utc_offset, _start_day, _end_day;
 	Tickval::ticks _toffset;
 
-	Schedule() : _start(Tickval::errorticks), _end(Tickval::errorticks), _utc_offset(),
+	Schedule() : _start(Tickval::errorticks()), _end(Tickval::errorticks()), _utc_offset(),
 		_start_day(-1), _end_day(-1) {}
 
     Schedule(Tickval start, Tickval end, Tickval duration=Tickval(), int utc_offset=0,
@@ -489,6 +489,13 @@ protected:
 	    \return true on success */
 	virtual bool handle_admin(const unsigned seqnum, const Message *msg) { return true; }
 
+	/*! Outbound Reject callback. Override to receive callback when an inbound message has caused a reject
+	    \param seqnum message sequence number
+	    \param msg Message
+	    \param errstr reject message text
+	    \return true on success */
+	F8API virtual bool handle_outbound_reject(const unsigned seqnum, const Message *msg, const char *errstr);
+
 	/*! Application message callback. Called on receipt of all non-admin messages. You must implement this method.
 	  The message is passed as a reference to a pointer. Your application can detach and take ownership. If you want
 	  to take ownership, take a copy of the pointer and then set msg to 0. See Session::detach()
@@ -526,7 +533,7 @@ protected:
 		return bme->_create._do(true);
 	}
 
-#if (THREAD_SYSTEM == THREAD_PTHREAD) && !defined _MSC_VER && defined _GNU_SOURCE && defined __linux__
+#if (FIX8_THREAD_SYSTEM == FIX8_THREAD_PTHREAD) && !defined _MSC_VER && defined _GNU_SOURCE && defined __linux__
 	/*! Get a string representing the current thread policy for the given thread
 	  e.g. SCHED_OTHER, SCHED_RR, SCHED_FIFO
 	    \param id thread id
@@ -642,6 +649,11 @@ public:
 	    \return true on success */
 	F8API bool send_process(Message *msg);
 
+	/*! Modify the header if desired. Called when message is sent.
+	    \param msg Message
+	    \return number of fields added/modifed */
+	F8API virtual int modify_header(MessageBase *msg);
+
 	/// Force persister to sync next send/receive seqnums
 	F8API void update_persist_seqnums();
 
@@ -749,6 +761,10 @@ public:
 	    \return loginParamaters */
 	const LoginParameters& get_login_parameters() const { return  _loginParameters; }
 
+	/*! Set the reset_sequence_numbers flag, defaults to value set in config file (default false)
+	    \param flag true or false */
+	void set_reset_sequence_numbers_flag(bool flag) { _loginParameters._reset_sequence_numbers = flag; }
+
 	/*! Set the persister.
 	    \param pst pointer to persister object  */
 	void set_persister(Persister *pst) { _persist = pst; }
@@ -855,7 +871,7 @@ public:
     else FIX8::log_stream(FIX8::logger_function(std::bind(&FIX8::Session::enqueue, x, std::placeholders::_1, FIX8::Logger::Error, FILE_LINE, std::placeholders::_2)))
 #define ssout_fatal(x) if (!x->is_loggable(FIX8::Logger::Fatal)); \
     else FIX8::log_stream(FIX8::logger_function(std::bind(&FIX8::Session::enqueue, x, std::placeholders::_1, FIX8::Logger::Fatal, FILE_LINE, std::placeholders::_2)))
-#if defined F8_DEBUG
+#if defined FIX8_DEBUG
 #define ssout_debug(x) if (!x->is_loggable(Logger::Debug)); \
     else FIX8::log_stream(FIX8::logger_function(std::bind(&FIX8::Session::enqueue, x, std::placeholders::_1, FIX8::Logger::Debug, FILE_LINE, std::placeholders::_2)))
 #else
@@ -874,4 +890,4 @@ public:
 
 } // FIX8
 
-#endif // _FIX8_SESSION_HPP_
+#endif // FIX8_SESSION_HPP_
